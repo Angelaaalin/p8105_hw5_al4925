@@ -1,0 +1,126 @@
+---
+title: "p8105_hw5_al4925"
+author: "Angela Lin"
+date: "2025-11-14"
+output: github_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(tidyverse)
+library(rvest)
+library(ggplot2)
+```
+
+## Problem 1
+```{r}
+set.seed(1)
+shared_bday = function(n) {
+  bday = sample(1:365, size = n, replace = TRUE)
+  any(duplicated(bday))
+}
+
+sample_size = 2:50
+iter = 10000
+
+result_df = tibble(
+  sample_size = sample_size,
+  match_prob = map_dbl(sample_size, function(n) {
+    sim = map_lgl(1:iter, ~ shared_bday(n))
+    mean(sim)
+  })
+)
+
+ggplot(result_df, aes(x = sample_size, y = match_prob)) +
+  geom_point() +
+  labs(
+    title = "Birthday Problem",
+    x = "Sample Size",
+    y = "Probability of Shared Birthday"
+  )
+
+```
+
+The plot shows that the probability of shared birthdays increases as the sample size grows. It is still low for small groups, but it rises sharply around 20–25 people and reaches about 50% near 23 people. After that, the probability continues increasing and almost reach 1 as the sample size is 45–50.
+
+## Problem 2
+```{r}
+set.seed(1)
+n = 30
+sigma = 5
+iter = 5000
+alpha = 0.05
+
+sim = function(mu) {
+  x = rnorm(n, mean = mu, sd = sigma)
+  t_test = t.test(x, mu = 0)
+  tibble(
+    mu = mu,
+    mu_hat = t_test$estimate,
+    p_value = t_test$p.value
+    )
+}
+
+mu = 1:6
+output = tibble()
+for (mu in mu) {
+  for (i in 1:iter) {
+    output = bind_rows(output, sim(mu))
+  }
+}
+```
+
+```{r}
+power_df =  output |>
+  group_by(mu) |>
+  summarise(power = mean(p_value < 0.05))
+
+ggplot(power_df, aes(x = mu, y = power)) +
+  geom_point() +
+  labs(
+    title = "Power vs Effect Size",
+    x = "Mean (μ)",
+    y = "Power"
+  )
+
+```
+
+Power increases as the true mean μ increases. When μ is close to 0, the t-test rarely rejects the null (power ≈ 0.05). As μ gets larger, the observed effect becomes easier to detect, and power rises quickly, reaching nearly 1 when μ ≥ 4. This shows a strong positive relationship between effect size and power.
+
+```{r}
+mu_df = output |>
+  group_by(mu) |>
+  summarise(
+    mean_mu_hat_all = mean(mu_hat),
+    mean_mu_hat_rejected = mean(mu_hat[p_value < 0.05], na.rm = TRUE)
+  )
+
+ggplot(mu_df, aes(x = mu, y = mean_mu_hat_all)) +
+  geom_point() +
+  geom_line() +
+  labs(
+    title = "Average Estimate of Mean hat",
+    x = "Mean",
+    y = "Average Mu Hat")
+
+ggplot(mu_df, aes(x = mu, y = mean_mu_hat_rejected)) +
+  geom_point() +
+  geom_line() +
+  labs(
+    title = "Average Estimate of Rejected Mean hat",
+    x = "Mean",
+    y = "Average Mu Hat")
+
+```
+
+The average μ̂ across all simulations is approximately equal to the true μ because the sample mean is an unbiased estimator.
+
+However, the average μ̂ among only the rejected samples is noticeably higher than the true μ when μ is small. This happens because rejection tends to occur in samples where the observed mean happened to be farther from 0 than usual. By conditioning on rejection, we select samples where μ̂ is unusually large, which creates selection bias. As μ becomes larger and power approaches 1, this bias decreases because almost all samples are rejected.
+
+## Problem 3
+```{r}
+```
+
