@@ -80,6 +80,7 @@ power_df =  output |>
 
 ggplot(power_df, aes(x = mu, y = power)) +
   geom_point() +
+  geom_line() +
   labs(
     title = "Power vs Effect Size",
     x = "Mean (μ)",
@@ -88,7 +89,7 @@ ggplot(power_df, aes(x = mu, y = power)) +
 
 ```
 
-Power increases as the true mean μ increases. When μ is close to 0, the t-test rarely rejects the null (power ≈ 0.05). As μ gets larger, the observed effect becomes easier to detect, and power rises quickly, reaching nearly 1 when μ ≥ 4. This shows a strong positive relationship between effect size and power.
+Power increases as the true mean($\mu$) increases. When $\mu$ is close to 0, the t-test rarely rejects the null (power ≈ 0.05). As $\mu$ gets larger, the observed effect becomes easier to detect, and power rises quickly, reaching closely to 1 when $\mu$ ≥ 4. This shows a strong positive relationship between effect size and power.
 
 ```{r}
 mu_df = output |>
@@ -116,11 +117,60 @@ ggplot(mu_df, aes(x = mu, y = mean_mu_hat_rejected)) +
 
 ```
 
-The average μ̂ across all simulations is approximately equal to the true μ because the sample mean is an unbiased estimator.
 
-However, the average μ̂ among only the rejected samples is noticeably higher than the true μ when μ is small. This happens because rejection tends to occur in samples where the observed mean happened to be farther from 0 than usual. By conditioning on rejection, we select samples where μ̂ is unusually large, which creates selection bias. As μ becomes larger and power approaches 1, this bias decreases because almost all samples are rejected.
+The avergae $\hat{\mu}$ across all simulations is approximately equal to the true $\mu$ because the sample mean is an unbiased estimator.
+
+However, the average $\hat{\mu}$ among only the rejected samples is higher than the true $\mu$ when $\mu$ is small. This happens because rejection tends to occur in samples where the observed mean happened to be farther from 0 than usual. By conditioning on rejection, we select samples where $\hat{\mu}$ is unusually large, which creates selection bias. As $\mu$ becomes larger and power approaches 1, this bias decreases because almost all samples are rejected.
 
 ## Problem 3
 ```{r}
+df = read.csv("homicide-data.csv")
+df = df |>
+  mutate(city_state = paste(city, state, sep = ", "))
+```
+
+```{r}
+unsolved = c("Closed without arrest", "Open/No arrest")
+city_summary <- df |>
+  group_by(city_state) |>
+  summarise(
+    total = n(),
+    unsolved = sum(disposition %in% unsolved)
+  )
+```
+
+```{r}
+baltimore <- city_summary |>
+  filter(city_state == "Baltimore, MD")
+
+balt_test <- prop.test(baltimore$unsolved, baltimore$total)
+balt_tidy <- broom::tidy(balt_test)
+balt_tidy |>
+  select(estimate, conf.low, conf.high)
+```
+
+```{r}
+city_results <- city_summary |>
+  mutate(
+    prop_test = map2(unsolved, total, ~ prop.test(.x, .y)),
+    tidy_out = map(prop_test, broom::tidy)
+  ) |>
+  unnest(tidy_out) |>
+  select(city_state, estimate, conf.low, conf.high)
+```
+
+```{r}
+city_results |>
+  arrange(estimate) |>
+  mutate(city_state = factor(city_state, levels = city_state)) |>
+  ggplot(aes(x = city_state, y = estimate)) +
+  geom_point() +
+  geom_errorbar(aes(ymin = conf.low, ymax = conf.high))+
+  coord_flip() +
+  labs(
+    title = "Proportion of Unsolved Homicides by City",
+    x = "State and City",
+    y = "Estimated proportion (with 95% CI)"
+  )
 ```
 
